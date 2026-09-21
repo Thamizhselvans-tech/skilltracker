@@ -1,7 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { checkAuthStatus, login as apiLogin, register as apiRegister, logout as apiLogout, getCurrentUser } from '../services/authService';
-import { getItem, saveItem, seedDemoData, STORAGE_KEYS } from '../services/offlineStorage';
+import { STORAGE_KEYS } from '../constants/storageKeys';
+import { getItem, saveItem, seedDemoData } from '../services/offlineStorage';
 import { Colors } from '../constants/colors';
+
+const TOKEN_KEY = (STORAGE_KEYS && STORAGE_KEYS.AUTH_TOKEN) || '@skilltracker_token';
+const USER_KEY = (STORAGE_KEYS && STORAGE_KEYS.USER_DATA) || '@skilltracker_user';
+const THEME_KEY = (STORAGE_KEYS && STORAGE_KEYS.THEME_MODE) || '@skilltracker_theme_mode';
 
 const AuthContext = createContext({});
 
@@ -17,7 +22,7 @@ export const AuthProvider = ({ children }) => {
 
   const loadInitialState = async () => {
     try {
-      const savedTheme = await getItem(STORAGE_KEYS.THEME_MODE);
+      const savedTheme = await getItem(THEME_KEY);
       if (savedTheme) {
         setThemeMode(savedTheme);
       }
@@ -41,7 +46,7 @@ export const AuthProvider = ({ children }) => {
   const toggleTheme = async () => {
     const newTheme = themeMode === 'dark' ? 'light' : 'dark';
     setThemeMode(newTheme);
-    await saveItem(STORAGE_KEYS.THEME_MODE, newTheme);
+    await saveItem(THEME_KEY, newTheme);
   };
 
   const login = async (credentials) => {
@@ -67,8 +72,8 @@ export const AuthProvider = ({ children }) => {
     };
     const mockToken = 'demo_jwt_offline_active';
     await seedDemoData();
-    await saveItem(STORAGE_KEYS.AUTH_TOKEN, mockToken);
-    await saveItem(STORAGE_KEYS.USER_DATA, mockUser);
+    await saveItem(TOKEN_KEY, mockToken);
+    await saveItem(USER_KEY, mockUser);
     setToken(mockToken);
     setUser(mockUser);
     return { success: true, data: { user: mockUser, token: mockToken } };

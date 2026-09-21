@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { STORAGE_KEYS as BASE_STORAGE_KEYS } from '../constants/storageKeys';
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = BASE_STORAGE_KEYS || {
   AUTH_TOKEN: '@skilltracker_token',
   USER_DATA: '@skilltracker_user',
   API_URL: '@skilltracker_api_url',
@@ -9,6 +10,7 @@ const STORAGE_KEYS = {
   OFFLINE_QUEUE: '@skilltracker_offline_queue',
   REGISTERED_ACCOUNTS: '@skilltracker_registered_accounts',
 };
+
 
 export const saveItem = async (key, value) => {
   try {

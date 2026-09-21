@@ -1,13 +1,17 @@
 import { apiPost, apiGet, apiPut } from './api';
+import { STORAGE_KEYS } from '../constants/storageKeys';
 import {
   saveItem,
   getItem,
   removeItem,
-  STORAGE_KEYS,
   saveRegisteredAccount,
   findRegisteredAccount,
   seedDemoData,
 } from './offlineStorage';
+
+const TOKEN_KEY = (STORAGE_KEYS && STORAGE_KEYS.AUTH_TOKEN) || '@skilltracker_token';
+const USER_KEY = (STORAGE_KEYS && STORAGE_KEYS.USER_DATA) || '@skilltracker_user';
+
 
 export const register = async (userData) => {
   const normalizedEmail = (userData.email || '').trim().toLowerCase();
@@ -46,8 +50,8 @@ export const register = async (userData) => {
       email: normalizedEmail,
     });
     if (res.success && res.data?.token) {
-      await saveItem(STORAGE_KEYS.AUTH_TOKEN, res.data.token);
-      await saveItem(STORAGE_KEYS.USER_DATA, res.data.user);
+      await saveItem(TOKEN_KEY, res.data.token);
+      await saveItem(USER_KEY, res.data.user);
       await saveRegisteredAccount({
         name: userData.name?.trim(),
         email: normalizedEmail,
@@ -63,8 +67,8 @@ export const register = async (userData) => {
 
   // Fallback to local offline account
   await seedDemoData();
-  await saveItem(STORAGE_KEYS.AUTH_TOKEN, offlineToken);
-  await saveItem(STORAGE_KEYS.USER_DATA, offlineUser);
+  await saveItem(TOKEN_KEY, offlineToken);
+  await saveItem(USER_KEY, offlineUser);
 
   return {
     success: true,
@@ -86,8 +90,8 @@ export const login = async (credentials) => {
     });
 
     if (res.success && res.data?.token) {
-      await saveItem(STORAGE_KEYS.AUTH_TOKEN, res.data.token);
-      await saveItem(STORAGE_KEYS.USER_DATA, res.data.user);
+      await saveItem(TOKEN_KEY, res.data.token);
+      await saveItem(USER_KEY, res.data.user);
       await saveRegisteredAccount({
         email: normalizedEmail,
         password: enteredPassword,
@@ -116,8 +120,8 @@ export const login = async (credentials) => {
       const token = localAccount.token || ('jwt_offline_' + Date.now());
 
       await seedDemoData();
-      await saveItem(STORAGE_KEYS.AUTH_TOKEN, token);
-      await saveItem(STORAGE_KEYS.USER_DATA, user);
+      await saveItem(TOKEN_KEY, token);
+      await saveItem(USER_KEY, user);
 
       return {
         success: true,
@@ -141,10 +145,10 @@ export const login = async (credentials) => {
 };
 
 export const getCurrentUser = async () => {
-  const cachedUser = await getItem(STORAGE_KEYS.USER_DATA);
+  const cachedUser = await getItem(USER_KEY);
   const res = await apiGet('/api/auth/me');
   if (res.success && res.data.user) {
-    await saveItem(STORAGE_KEYS.USER_DATA, res.data.user);
+    await saveItem(USER_KEY, res.data.user);
     return res.data.user;
   }
   return cachedUser;
@@ -153,19 +157,19 @@ export const getCurrentUser = async () => {
 export const updateProfile = async (userData) => {
   const res = await apiPut('/api/auth/me', userData);
   if (res.success && res.data.user) {
-    await saveItem(STORAGE_KEYS.USER_DATA, res.data.user);
+    await saveItem(USER_KEY, res.data.user);
   }
   return res;
 };
 
 export const logout = async () => {
-  await removeItem(STORAGE_KEYS.AUTH_TOKEN);
-  await removeItem(STORAGE_KEYS.USER_DATA);
+  await removeItem(TOKEN_KEY);
+  await removeItem(USER_KEY);
 };
 
 export const checkAuthStatus = async () => {
-  const token = await getItem(STORAGE_KEYS.AUTH_TOKEN);
-  const user = await getItem(STORAGE_KEYS.USER_DATA);
+  const token = await getItem(TOKEN_KEY);
+  const user = await getItem(USER_KEY);
   return { isAuthenticated: Boolean(token), token, user };
 };
 

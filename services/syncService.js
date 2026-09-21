@@ -1,5 +1,10 @@
-import { getItem, saveItem, STORAGE_KEYS, getCachedData, setCachedData } from './offlineStorage';
-import { getBaseApiUrl } from './api';
+import { getItem, saveItem, getCachedData, setCachedData } from './offlineStorage';
+import { STORAGE_KEYS } from '../constants/storageKeys';
+import { getBaseApiUrl } from './apiUrl';
+
+const TOKEN_KEY = (STORAGE_KEYS && STORAGE_KEYS.AUTH_TOKEN) || '@skilltracker_token';
+const QUEUE_KEY = (STORAGE_KEYS && STORAGE_KEYS.OFFLINE_QUEUE) || '@skilltracker_offline_queue';
+
 
 let syncListeners = [];
 
@@ -22,7 +27,7 @@ export const subscribeToSync = (callback) => {
 
 export const getOfflineQueue = async () => {
   try {
-    const queue = await getItem(STORAGE_KEYS.OFFLINE_QUEUE);
+    const queue = await getItem(QUEUE_KEY);
     return Array.isArray(queue) ? queue : [];
   } catch (e) {
     console.error('[getOfflineQueue error]', e);
@@ -45,7 +50,7 @@ export const queueOfflineAction = async (action) => {
       ...action,
     };
     queue.push(actionItem);
-    await saveItem(STORAGE_KEYS.OFFLINE_QUEUE, queue);
+    await saveItem(QUEUE_KEY, queue);
     notifySyncListeners({ type: 'queued', action: actionItem, pendingCount: queue.length });
     return actionItem;
   } catch (e) {
@@ -58,7 +63,7 @@ export const removeQueueItem = async (actionId) => {
   try {
     const queue = await getOfflineQueue();
     const filtered = queue.filter((item) => item.id !== actionId);
-    await saveItem(STORAGE_KEYS.OFFLINE_QUEUE, filtered);
+    await saveItem(QUEUE_KEY, filtered);
     notifySyncListeners({ type: 'removed', pendingCount: filtered.length });
     return filtered;
   } catch (e) {
@@ -67,7 +72,7 @@ export const removeQueueItem = async (actionId) => {
 };
 
 export const clearOfflineQueue = async () => {
-  await saveItem(STORAGE_KEYS.OFFLINE_QUEUE, []);
+  await saveItem(QUEUE_KEY, []);
   notifySyncListeners({ type: 'cleared', pendingCount: 0 });
 };
 
@@ -101,7 +106,7 @@ export const syncOfflineQueue = async () => {
   notifySyncListeners({ type: 'sync_start', pendingCount: queue.length });
 
   const baseUrl = await getBaseApiUrl();
-  const token = await getItem(STORAGE_KEYS.AUTH_TOKEN);
+  const token = await getItem(TOKEN_KEY);
   const remainingQueue = [];
   let syncedCount = 0;
 
@@ -170,7 +175,7 @@ export const syncOfflineQueue = async () => {
     }
   }
 
-  await saveItem(STORAGE_KEYS.OFFLINE_QUEUE, remainingQueue);
+  await saveItem(QUEUE_KEY, remainingQueue);
   await saveItem('@skilltracker_last_sync_time', Date.now());
 
   notifySyncListeners({
