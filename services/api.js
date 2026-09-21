@@ -42,8 +42,10 @@ export const requestApi = async (endpoint, method = 'GET', body = null) => {
   }
 
   try {
+    const isAuth = endpoint.includes('/auth');
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeoutDuration = isAuth ? 3500 : 8000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
     options.signal = controller.signal;
 
     const response = await fetch(url, options);
@@ -81,9 +83,15 @@ export const requestApi = async (endpoint, method = 'GET', body = null) => {
       }
     }
 
+    const isNetworkAbort = error.name === 'AbortError' || error.message?.includes('aborted') || error.message?.includes('Network request failed');
+    const helpfulMsg = isNetworkAbort
+      ? `Cannot reach server at ${baseUrl}. Tap "Server IP" or use "Instant Demo Login".`
+      : (error.message || 'Network error, please check connection');
+
     return {
       success: false,
-      error: error.message || 'Network error, please check connection',
+      error: helpfulMsg,
+      isNetworkError: isNetworkAbort,
       isOffline: true,
     };
   }

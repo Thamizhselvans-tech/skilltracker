@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { checkAuthStatus, login as apiLogin, register as apiRegister, logout as apiLogout, getCurrentUser } from '../services/authService';
-import { getItem, saveItem, STORAGE_KEYS } from '../services/offlineStorage';
+import { getItem, saveItem, seedDemoData, STORAGE_KEYS } from '../services/offlineStorage';
 import { Colors } from '../constants/colors';
 
 const AuthContext = createContext({});
@@ -55,6 +55,29 @@ export const AuthProvider = ({ children }) => {
     return res;
   };
 
+  const demoLogin = async () => {
+    setIsLoading(true);
+    const mockUser = {
+      _id: 'demo_user_101',
+      name: 'Thamil Selvan',
+      email: 'thamil@skilltracker.app',
+      college: 'College of Engineering & Technology',
+      department: 'Computer Science & Engineering',
+      year: '3rd Year',
+      skillsCount: 5,
+      streak: 7,
+      isDemo: true,
+    };
+    const mockToken = 'demo_jwt_offline_active';
+    await seedDemoData();
+    await saveItem(STORAGE_KEYS.AUTH_TOKEN, mockToken);
+    await saveItem(STORAGE_KEYS.USER_DATA, mockUser);
+    setToken(mockToken);
+    setUser(mockUser);
+    setIsLoading(false);
+    return { success: true, data: { user: mockUser, token: mockToken } };
+  };
+
   const register = async (userData) => {
     setIsLoading(true);
     const res = await apiRegister(userData);
@@ -88,6 +111,7 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: Boolean(token),
         isLoading,
         login,
+        demoLogin,
         register,
         logout,
         refreshUser,

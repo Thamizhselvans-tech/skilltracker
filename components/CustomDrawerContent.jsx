@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
@@ -40,6 +40,19 @@ export const CustomDrawerContent = (props) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.surface }]}>
+      {/* App Brand Header */}
+      <View style={[styles.brandHeader, { borderBottomColor: theme.border, backgroundColor: theme.background }]}>
+        <Image
+          source={require('../assets/logo.png')}
+          style={styles.brandLogo}
+          resizeMode="contain"
+        />
+        <View style={{ marginLeft: 12 }}>
+          <Text style={[styles.brandTitle, { color: theme.text }]}>SkillTracker</Text>
+          <Text style={[styles.brandSubtitle, { color: theme.primary }]}>STUDENT + STARTUP</Text>
+        </View>
+      </View>
+
       {/* Top Profile Header */}
       <TouchableOpacity
         style={[styles.profileHeader, { borderBottomColor: theme.border, backgroundColor: theme.background }]}
@@ -122,9 +135,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  profileHeader: {
+  brandHeader: {
     paddingTop: 50,
-    paddingBottom: 20,
+    paddingBottom: 14,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+  },
+  brandLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  brandTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  brandSubtitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginTop: 2,
+  },
+  profileHeader: {
+    paddingVertical: 14,
     paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
