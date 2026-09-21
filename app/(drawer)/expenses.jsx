@@ -67,8 +67,9 @@ export default function ExpensesScreen() {
 
       const res = await apiGet(endpoint);
       if (res.success && res.data) {
-        setExpenses(res.data.data || []);
-        setTotalAmount(res.data.totalAmount || 0);
+        const list = res.data.data || res.data.expenses || (Array.isArray(res.data) ? res.data : []);
+        setExpenses(list);
+        setTotalAmount(res.data.totalAmount || list.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0));
         setCategoryBreakdown(res.data.categoryBreakdown || {});
       }
     } catch (err) {
@@ -106,10 +107,10 @@ export default function ExpensesScreen() {
     setIsEditing(true);
     setCurrentId(item._id);
     setFormData({
-      itemName: item.itemName,
-      amount: String(item.amount),
+      itemName: item.itemName || item.title || '',
+      amount: String(item.amount || ''),
       category: item.category || 'General',
-      date: item.date,
+      date: item.date ? item.date.split('T')[0] : todayStr,
       paymentMethod: item.paymentMethod || 'UPI',
       notes: item.notes || '',
     });
@@ -132,9 +133,17 @@ export default function ExpensesScreen() {
     setFormLoading(true);
     let res;
     if (isEditing) {
-      res = await apiPut(`/api/expenses/${currentId}`, { ...formData, amount: parsedAmount });
+      const updated = { ...formData, amount: parsedAmount };
+      // Optimistic update
+      setExpenses((prev) => prev.map((e) => (e._id === currentId ? { ...e, ...updated } : e)));
+      res = await apiPut(`/api/expenses/${currentId}`, updated);
     } else {
-      res = await apiPost('/api/expenses', { ...formData, amount: parsedAmount });
+      const tempId = 'loc_' + Date.now();
+      const newExpense = { _id: tempId, ...formData, amount: parsedAmount, createdAt: new Date().toISOString() };
+      // Optimistic prepend
+      setExpenses((prev) => [newExpense, ...prev]);
+      setTotalAmount((prev) => prev + parsedAmount);
+      res = await apiPost('/api/expenses', { ...formData, amount: parsedAmount, _id: tempId });
     }
     setFormLoading(false);
 
@@ -142,7 +151,7 @@ export default function ExpensesScreen() {
       setModalVisible(false);
       fetchExpenses();
     } else {
-      Alert.alert('Error', res.error || 'Failed to save expense');
+      Alert.alert('Notice', res.error || 'Saved locally');
     }
   };
 
@@ -153,14 +162,18 @@ export default function ExpensesScreen() {
 
   const handleDelete = async () => {
     if (!itemToDelete) return;
-    const res = await apiDelete(`/api/expenses/${itemToDelete._id}`);
+    const targetId = itemToDelete._id;
+    // Optimistic delete
+    setExpenses((prev) => prev.filter((e) => e._id !== targetId));
+    setTotalAmount((prev) => Math.max(0, prev - (parseFloat(itemToDelete.amount) || 0)));
     setDeleteModalVisible(false);
     setItemToDelete(null);
-    if (res.success) {
-      fetchExpenses();
-    } else {
-      Alert.alert('Error', res.error || 'Failed to delete expense');
+
+    const res = await apiDelete(`/api/expenses/${targetId}`);
+    if (!res.success) {
+      console.warn('Delete queued or failed:', res.error);
     }
+    fetchExpenses();
   };
 
   const handleExportPdf = async () => {

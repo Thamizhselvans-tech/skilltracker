@@ -64,8 +64,9 @@ export default function PlannerScreen() {
       if (params.length > 0) endpoint += `?${params.join('&')}`;
 
       const res = await apiGet(endpoint);
-      if (res.success && res.data?.data) {
-        setTasks(res.data.data);
+      if (res.success && res.data) {
+        const list = res.data.data || res.data.tasks || (Array.isArray(res.data) ? res.data : []);
+        setTasks(list);
       }
     } catch (err) {
       console.warn('Planner fetch error:', err);
@@ -104,8 +105,8 @@ export default function PlannerScreen() {
     setIsEditing(true);
     setCurrentId(item._id);
     setFormData({
-      task: item.task,
-      date: item.date,
+      task: item.task || item.title || '',
+      date: item.date || todayStr,
       time: item.time || '',
       priority: item.priority || 'Medium',
       category: item.category || 'Academic',
@@ -125,11 +126,16 @@ export default function PlannerScreen() {
     setFormLoading(true);
     let res;
     if (isEditing) {
+      // Optimistic update
+      setTasks((prev) => prev.map((t) => (t._id === currentId ? { ...t, ...formData } : t)));
       res = await apiPut(`/api/planner/${currentId}`, formData);
     } else {
-      res = await apiPost('/api/planner', formData);
-      if (res.success && formData.reminder) {
-        // Schedule notification
+      const tempId = 'loc_' + Date.now();
+      const newTask = { _id: tempId, ...formData, createdAt: new Date().toISOString() };
+      // Optimistic prepend
+      setTasks((prev) => [newTask, ...prev]);
+      res = await apiPost('/api/planner', { ...formData, _id: tempId });
+      if (formData.reminder) {
         scheduleLocalReminder(`Task Reminder: ${formData.task}`, `Due at ${formData.time || 'today'}`);
       }
     }
@@ -139,7 +145,7 @@ export default function PlannerScreen() {
       setModalVisible(false);
       fetchTasks();
     } else {
-      Alert.alert('Error', res.error || 'Failed to save task');
+      Alert.alert('Notice', res.error || 'Saved locally');
     }
   };
 
@@ -160,12 +166,17 @@ export default function PlannerScreen() {
 
   const handleDelete = async () => {
     if (!itemToDelete) return;
-    const res = await apiDelete(`/api/planner/${itemToDelete._id}`);
+    const targetId = itemToDelete._id;
+    // Optimistic delete
+    setTasks((prev) => prev.filter((t) => t._id !== targetId));
     setDeleteModalVisible(false);
     setItemToDelete(null);
-    if (res.success) {
-      fetchTasks();
+
+    const res = await apiDelete(`/api/planner/${targetId}`);
+    if (!res.success) {
+      console.warn('Delete queued or failed:', res.error);
     }
+    fetchTasks();
   };
 
   const getPriorityColor = (priority) => {

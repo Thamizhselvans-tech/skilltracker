@@ -59,8 +59,9 @@ export default function SkillsScreen() {
       if (params.length > 0) endpoint += `?${params.join('&')}`;
 
       const res = await apiGet(endpoint);
-      if (res.success && res.data?.data) {
-        setSkills(res.data.data);
+      if (res.success && res.data) {
+        const list = res.data.data || res.data.skills || (Array.isArray(res.data) ? res.data : []);
+        setSkills(list);
       }
     } catch (err) {
       console.warn('Skills load error:', err);
@@ -98,11 +99,11 @@ export default function SkillsScreen() {
     setIsEditing(true);
     setCurrentId(item._id);
     setFormData({
-      name: item.name,
-      category: item.category || 'General',
+      name: item.name || '',
+      category: item.category || 'Programming',
       description: item.description || '',
       skillLevel: item.skillLevel || 'Beginner',
-      progress: String(item.progress || 0),
+      progress: String(item.progress || item.progressPercent || 0),
       targetDate: item.targetDate ? item.targetDate.split('T')[0] : '',
       notes: item.notes || '',
     });
@@ -118,14 +119,21 @@ export default function SkillsScreen() {
     const payload = {
       ...formData,
       progress: Math.min(100, Math.max(0, parseInt(formData.progress, 10) || 0)),
+      progressPercent: Math.min(100, Math.max(0, parseInt(formData.progress, 10) || 0)),
     };
 
     setFormLoading(true);
     let res;
     if (isEditing) {
+      // Optimistic local update
+      setSkills((prev) => prev.map((s) => (s._id === currentId ? { ...s, ...payload } : s)));
       res = await apiPut(`/api/skills/${currentId}`, payload);
     } else {
-      res = await apiPost('/api/skills', payload);
+      const tempId = 'loc_' + Date.now();
+      const newItem = { _id: tempId, ...payload, createdAt: new Date().toISOString() };
+      // Optimistic local prepend
+      setSkills((prev) => [newItem, ...prev]);
+      res = await apiPost('/api/skills', { ...payload, _id: tempId });
     }
     setFormLoading(false);
 
@@ -133,7 +141,7 @@ export default function SkillsScreen() {
       setModalVisible(false);
       fetchSkills();
     } else {
-      Alert.alert('Error', res.error || 'Failed to save skill');
+      Alert.alert('Notice', res.error || 'Saved locally');
     }
   };
 
@@ -144,14 +152,17 @@ export default function SkillsScreen() {
 
   const handleDelete = async () => {
     if (!itemToDelete) return;
-    const res = await apiDelete(`/api/skills/${itemToDelete._id}`);
+    const targetId = itemToDelete._id;
+    // Optimistic delete
+    setSkills((prev) => prev.filter((s) => s._id !== targetId));
     setDeleteModalVisible(false);
     setItemToDelete(null);
-    if (res.success) {
-      fetchSkills();
-    } else {
-      Alert.alert('Error', res.error || 'Failed to delete skill');
+
+    const res = await apiDelete(`/api/skills/${targetId}`);
+    if (!res.success) {
+      console.warn('Delete queued or failed:', res.error);
     }
+    fetchSkills();
   };
 
   const renderSkillCard = ({ item }) => (

@@ -117,14 +117,23 @@ export default function StartupScreen() {
         apiGet('/api/startup/projects'),
       ]);
 
-      if (dashRes.success) setDashboardData(dashRes.data?.data);
+      if (dashRes.success) setDashboardData(dashRes.data?.data || dashRes.data);
       if (profRes.success) {
-        setProfile(profRes.data?.data);
-        if (profRes.data?.data) setProfileForm(profRes.data.data);
+        const prof = profRes.data?.data || profRes.data?.profile || profRes.data;
+        if (prof) {
+          setProfile(prof);
+          setProfileForm(prof);
+        }
       }
-      if (clientRes.success) setClients(clientRes.data?.data || []);
-      if (memberRes.success) setMembers(memberRes.data?.data || []);
-      if (projRes.success) setProjects(projRes.data?.data || []);
+      if (clientRes.success) {
+        setClients(clientRes.data?.data || clientRes.data?.clients || (Array.isArray(clientRes.data) ? clientRes.data : []));
+      }
+      if (memberRes.success) {
+        setMembers(memberRes.data?.data || memberRes.data?.members || (Array.isArray(memberRes.data) ? memberRes.data : []));
+      }
+      if (projRes.success) {
+        setProjects(projRes.data?.data || projRes.data?.projects || (Array.isArray(projRes.data) ? projRes.data : []));
+      }
     } catch (err) {
       console.warn('Startup fetch error:', err);
     } finally {

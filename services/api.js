@@ -100,6 +100,46 @@ export const requestApi = async (endpoint, method = 'GET', body = null) => {
 
     const isTimeout = error.name === 'TimeoutError' || error.message === 'NETWORK_TIMEOUT';
     const isNetworkAbort = isTimeout || error.name === 'AbortError' || error.message?.includes('aborted') || error.message?.includes('Network request failed');
+
+    // For non-auth mutations (POST, PUT, DELETE), queue for automatic sync when back online
+    if (isNetworkAbort && method !== 'GET' && !endpoint.includes('/auth')) {
+      try {
+        const { queueOfflineAction } = require('./syncService');
+        const inferCollectionKey = (ep) => {
+          if (ep.includes('skills')) return 'skills';
+          if (ep.includes('planner')) return 'tasks';
+          if (ep.includes('timetable')) return 'timetable';
+          if (ep.includes('internal-exams')) return 'internalExams';
+          if (ep.includes('external-exams')) return 'externalExams';
+          if (ep.includes('expenses')) return 'expenses';
+          if (ep.includes('practice')) return 'sessions';
+          if (ep.includes('startup')) return 'projects';
+          return 'items';
+        };
+
+        const tempId = body?._id || body?.id || ('temp_' + Date.now());
+        const collectionKey = inferCollectionKey(endpoint);
+
+        queueOfflineAction({
+          endpoint,
+          method,
+          body,
+          tempId,
+          collectionKey,
+        });
+
+        return {
+          success: true,
+          data: body ? { ...body, _id: tempId } : { success: true },
+          isOffline: true,
+          queued: true,
+          message: 'Saved offline. Will sync automatically when connection is restored.',
+        };
+      } catch (queueErr) {
+        console.warn('[Queue mutation fallback error]', queueErr);
+      }
+    }
+
     const helpfulMsg = isNetworkAbort
       ? `Cannot reach server at ${baseUrl}. Using local offline mode.`
       : (error.message || 'Network error, please check connection');

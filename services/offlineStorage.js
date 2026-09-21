@@ -55,6 +55,56 @@ export const getCachedData = async (endpoint) => {
   return cached ? cached.data : null;
 };
 
+// Optimistic Cache Manipulation Helpers
+export const optimisticCreate = async (endpoint, arrayKey, item) => {
+  try {
+    const cached = (await getCachedData(endpoint)) || {};
+    const existingList = Array.isArray(cached[arrayKey]) ? cached[arrayKey] : [];
+    const updatedList = [item, ...existingList];
+    await setCachedData(endpoint, {
+      ...cached,
+      [arrayKey]: updatedList,
+      count: (cached.count || existingList.length) + 1,
+    });
+    return item;
+  } catch (e) {
+    console.error('[optimisticCreate error]', e);
+    return item;
+  }
+};
+
+export const optimisticUpdate = async (endpoint, arrayKey, itemId, updatedFields) => {
+  try {
+    const cached = (await getCachedData(endpoint)) || {};
+    const existingList = Array.isArray(cached[arrayKey]) ? cached[arrayKey] : [];
+    const updatedList = existingList.map((item) =>
+      item._id === itemId || item.id === itemId ? { ...item, ...updatedFields } : item
+    );
+    await setCachedData(endpoint, {
+      ...cached,
+      [arrayKey]: updatedList,
+    });
+    return updatedList.find((i) => i._id === itemId || i.id === itemId);
+  } catch (e) {
+    console.error('[optimisticUpdate error]', e);
+  }
+};
+
+export const optimisticDelete = async (endpoint, arrayKey, itemId) => {
+  try {
+    const cached = (await getCachedData(endpoint)) || {};
+    const existingList = Array.isArray(cached[arrayKey]) ? cached[arrayKey] : [];
+    const updatedList = existingList.filter((item) => item._id !== itemId && item.id !== itemId);
+    await setCachedData(endpoint, {
+      ...cached,
+      [arrayKey]: updatedList,
+      count: Math.max(0, (cached.count || existingList.length) - 1),
+    });
+  } catch (e) {
+    console.error('[optimisticDelete error]', e);
+  }
+};
+
 // Local Registered Accounts for Instant & Offline Authentication
 export const saveRegisteredAccount = async (account) => {
   try {
@@ -215,6 +265,9 @@ export default {
   removeItem,
   setCachedData,
   getCachedData,
+  optimisticCreate,
+  optimisticUpdate,
+  optimisticDelete,
   saveRegisteredAccount,
   findRegisteredAccount,
   seedDemoData,
