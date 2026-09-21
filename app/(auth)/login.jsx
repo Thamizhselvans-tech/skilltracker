@@ -54,21 +54,30 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
-    const res = await login({ email: email.trim(), password });
-    setLoading(false);
-
-    if (res.success) {
-      router.replace('/(drawer)');
-    } else {
-      setErrorMsg(res.error || res.message || 'Unable to sign in. Please verify credentials.');
+    try {
+      const res = await login({ email: email.trim().toLowerCase(), password });
+      if (res.success) {
+        router.replace('/(drawer)');
+      } else {
+        setErrorMsg(res.error || res.message || 'Unable to sign in. Please verify credentials.');
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDemoLogin = async () => {
     setDemoLoading(true);
-    await demoLogin();
-    setDemoLoading(false);
-    router.replace('/(drawer)');
+    try {
+      await demoLogin();
+      router.replace('/(drawer)');
+    } catch (err) {
+      setErrorMsg(err.message || 'Demo login failed');
+    } finally {
+      setDemoLoading(false);
+    }
   };
 
   const handleSaveServerUrl = async (newUrl) => {

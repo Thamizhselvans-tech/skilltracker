@@ -43,19 +43,34 @@ export const requestApi = async (endpoint, method = 'GET', body = null) => {
 
   try {
     const isAuth = endpoint.includes('/auth');
-    const controller = new AbortController();
-    const timeoutDuration = isAuth ? 3500 : 8000;
-    const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
-    options.signal = controller.signal;
+    const timeoutDuration = isAuth ? 2500 : 4000;
 
-    const response = await fetch(url, options);
-    clearTimeout(timeoutId);
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        const err = new Error('NETWORK_TIMEOUT');
+        err.name = 'TimeoutError';
+        reject(err);
+      }, timeoutDuration);
+    });
 
-    const data = await response.json();
+    const fetchPromise = fetch(url, options).then(async (response) => {
+      clearTimeout(timeoutId);
+      let data = {};
+      try {
+        data = await response.json();
+      } catch {
+        data = { message: `Server error (${response.status})` };
+      }
 
-    if (!response.ok) {
-      throw new Error(data.message || `Request failed with status ${response.status}`);
-    }
+      if (!response.ok) {
+        throw new Error(data.message || `Request failed with status ${response.status}`);
+      }
+
+      return data;
+    });
+
+    const data = await Promise.race([fetchPromise, timeoutPromise]);
 
     // Cache successful GET responses for offline mode
     if (method === 'GET') {
@@ -83,9 +98,10 @@ export const requestApi = async (endpoint, method = 'GET', body = null) => {
       }
     }
 
-    const isNetworkAbort = error.name === 'AbortError' || error.message?.includes('aborted') || error.message?.includes('Network request failed');
+    const isTimeout = error.name === 'TimeoutError' || error.message === 'NETWORK_TIMEOUT';
+    const isNetworkAbort = isTimeout || error.name === 'AbortError' || error.message?.includes('aborted') || error.message?.includes('Network request failed');
     const helpfulMsg = isNetworkAbort
-      ? `Cannot reach server at ${baseUrl}. Tap "Server IP" or use "Instant Demo Login".`
+      ? `Cannot reach server at ${baseUrl}. Using local offline mode.`
       : (error.message || 'Network error, please check connection');
 
     return {

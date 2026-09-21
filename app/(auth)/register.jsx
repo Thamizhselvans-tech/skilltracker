@@ -57,13 +57,22 @@ export default function RegisterScreen() {
     }
 
     setLoading(true);
-    const res = await register(formData);
-    setLoading(false);
-
-    if (res.success) {
-      router.replace('/(drawer)');
-    } else {
-      setErrorMsg(res.error || res.message || 'Registration failed. Please check your information.');
+    try {
+      const res = await register({
+        ...formData,
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
+      });
+      if (res.success) {
+        router.replace('/(drawer)');
+      } else {
+        setErrorMsg(res.error || res.message || 'Registration failed. Please check your information.');
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 

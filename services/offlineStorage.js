@@ -7,6 +7,7 @@ const STORAGE_KEYS = {
   THEME_MODE: '@skilltracker_theme_mode',
   CACHE_PREFIX: '@skilltracker_cache_',
   OFFLINE_QUEUE: '@skilltracker_offline_queue',
+  REGISTERED_ACCOUNTS: '@skilltracker_registered_accounts',
 };
 
 export const saveItem = async (key, value) => {
@@ -52,6 +53,38 @@ export const setCachedData = async (endpoint, data) => {
 export const getCachedData = async (endpoint) => {
   const cached = await getItem(`${STORAGE_KEYS.CACHE_PREFIX}${endpoint}`);
   return cached ? cached.data : null;
+};
+
+// Local Registered Accounts for Instant & Offline Authentication
+export const saveRegisteredAccount = async (account) => {
+  try {
+    const existing = (await getItem(STORAGE_KEYS.REGISTERED_ACCOUNTS)) || [];
+    const normalizedEmail = (account.email || '').trim().toLowerCase();
+    if (!normalizedEmail) return;
+    const filtered = existing.filter(
+      (a) => (a.email || '').trim().toLowerCase() !== normalizedEmail
+    );
+    filtered.push({
+      ...account,
+      email: normalizedEmail,
+      updatedAt: Date.now(),
+    });
+    await saveItem(STORAGE_KEYS.REGISTERED_ACCOUNTS, filtered);
+  } catch (e) {
+    console.error('[saveRegisteredAccount error]', e);
+  }
+};
+
+export const findRegisteredAccount = async (email) => {
+  try {
+    if (!email) return null;
+    const existing = (await getItem(STORAGE_KEYS.REGISTERED_ACCOUNTS)) || [];
+    const normalizedEmail = email.trim().toLowerCase();
+    return existing.find((a) => (a.email || '').trim().toLowerCase() === normalizedEmail) || null;
+  } catch (e) {
+    console.error('[findRegisteredAccount error]', e);
+    return null;
+  }
 };
 
 export const seedDemoData = async () => {
@@ -118,6 +151,31 @@ export const seedDemoData = async () => {
       totalExpenses: 2330,
     });
 
+    await setCachedData('/api/progress/dashboard', {
+      overallProgress: 72,
+      totalSkills: 5,
+      totalPracticeHours: 48,
+      completedTasks: 9,
+      totalTasks: 12,
+      upcomingInternalExams: 2,
+      upcomingExternalExams: 2,
+      totalExpenses: 2330,
+      recentSkills: [
+        { _id: 'demo_s1', name: 'React Native & Mobile App Dev', progressPercent: 75, category: 'Mobile Dev' },
+        { _id: 'demo_s2', name: 'Node.js & Express REST APIs', progressPercent: 70, category: 'Web Dev' },
+      ],
+      upcomingTasks: [
+        { _id: 'demo_t1', title: 'Compile Final Android APK on EAS', day: 'Monday', priority: 'High', status: 'Completed' },
+        { _id: 'demo_t4', title: 'Client Demo Presentation & Feedback', day: 'Friday', priority: 'High', status: 'Pending' },
+      ],
+      nextInternalExam: {
+        subject: 'Mobile App Development',
+        examType: 'Mid-Term Exam',
+        examDate: '2026-10-05',
+        roomNumber: 'Exam Hall A',
+      },
+    });
+
     await setCachedData('/api/startup', {
       profile: {
         startupName: 'SkillTracker Tech Lab',
@@ -157,5 +215,8 @@ export default {
   removeItem,
   setCachedData,
   getCachedData,
+  saveRegisteredAccount,
+  findRegisteredAccount,
+  seedDemoData,
   clearAllCache,
 };

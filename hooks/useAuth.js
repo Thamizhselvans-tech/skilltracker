@@ -45,10 +45,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (credentials) => {
-    setIsLoading(true);
     const res = await apiLogin(credentials);
-    setIsLoading(false);
-    if (res.success) {
+    if (res.success && res.data) {
       setToken(res.data.token);
       setUser(res.data.user);
     }
@@ -56,9 +54,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const demoLogin = async () => {
-    setIsLoading(true);
     const mockUser = {
-      _id: 'demo_user_101',
+      id: 'demo_user_101',
       name: 'Thamil Selvan',
       email: 'thamil@skilltracker.app',
       college: 'College of Engineering & Technology',
@@ -74,15 +71,12 @@ export const AuthProvider = ({ children }) => {
     await saveItem(STORAGE_KEYS.USER_DATA, mockUser);
     setToken(mockToken);
     setUser(mockUser);
-    setIsLoading(false);
     return { success: true, data: { user: mockUser, token: mockToken } };
   };
 
   const register = async (userData) => {
-    setIsLoading(true);
     const res = await apiRegister(userData);
-    setIsLoading(false);
-    if (res.success) {
+    if (res.success && res.data) {
       setToken(res.data.token);
       setUser(res.data.user);
     }

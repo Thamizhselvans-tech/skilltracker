@@ -16,13 +16,27 @@ import { ProgressBar } from '../../components/ProgressBar';
 import { apiGet } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 
+const DEFAULT_DASHBOARD = {
+  overallProgress: 70,
+  totalSkills: 5,
+  totalPracticeHours: 42,
+  completedTasks: 8,
+  totalTasks: 11,
+  upcomingInternalExams: 2,
+  upcomingExternalExams: 2,
+  totalExpenses: 2330,
+  recentSkills: [],
+  upcomingTasks: [],
+  nextInternalExam: null,
+};
+
 export default function HomeScreen() {
   const router = useRouter();
   const { user, theme } = useAuth();
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [dashboardData, setDashboardData] = useState(null);
+  const [dashboardData, setDashboardData] = useState(DEFAULT_DASHBOARD);
   const [isOffline, setIsOffline] = useState(false);
 
   const fetchDashboard = useCallback(async () => {
