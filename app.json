@@ -2,7 +2,7 @@
   "expo": {
     "name": "SkillTracker",
     "slug": "skilltracker",
-    "owner": "th_amizh",
+    "owner": "tp0911",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -58,11 +58,11 @@
         "origin": false
       },
       "eas": {
-        "projectId": "ed142245-6b10-4075-9c2d-dd1c3104d39d"
+        "projectId": "ce295261-0859-43c7-92a1-1099e5434bda"
       }
     },
     "updates": {
-      "url": "https://u.expo.dev/ed142245-6b10-4075-9c2d-dd1c3104d39d",
+      "url": "https://u.expo.dev/ce295261-0859-43c7-92a1-1099e5434bda",
       "fallbackToCacheTimeout": 5000
     }
   }
