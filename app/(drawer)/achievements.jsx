@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../../components/Header';
 import { ProgressBar } from '../../components/ProgressBar';
 import { apiGet } from '../../services/api';
+import { getCachedData } from '../../services/offlineStorage';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function AchievementsScreen() {
@@ -21,6 +22,31 @@ export default function AchievementsScreen() {
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // 1. Load cached data immediately on mount (< 30ms render)
+  useEffect(() => {
+    let isMounted = true;
+    const initLoad = async () => {
+      try {
+        const cached = await getCachedData('/api/achievements');
+        if (cached && isMounted) {
+          const list = cached.data || (Array.isArray(cached) ? cached : []);
+          if (list.length > 0) {
+            setAchievements(list);
+            setUnlockedCount(cached.unlockedCount || list.filter(a => a.isUnlocked).length);
+            setTotalCount(cached.totalCount || list.length);
+            setLoading(false);
+          }
+        }
+      } catch (e) {
+        console.warn('Error reading achievements cache:', e);
+      }
+    };
+    initLoad();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const fetchAchievements = useCallback(async () => {
     try {

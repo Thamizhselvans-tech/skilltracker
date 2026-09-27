@@ -2,6 +2,7 @@
   "expo": {
     "name": "SkillTracker",
     "slug": "skilltracker",
+    "owner": "th_amizh",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.skilltracker.app"
+      "bundleIdentifier": "com.skilltracker.app",
+      "runtimeVersion": {
+        "policy": "appVersion"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -28,8 +32,14 @@
         "VIBRATE",
         "POST_NOTIFICATIONS",
         "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "POST_NOTIFICATIONS",
+        "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
-      ]
+      ],
+      "runtimeVersion": "1.0.0"
     },
     "plugins": [
       "expo-router",
@@ -50,6 +60,9 @@
       "eas": {
         "projectId": "ed142245-6b10-4075-9c2d-dd1c3104d39d"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ed142245-6b10-4075-9c2d-dd1c3104d39d"
     }
   }
 }

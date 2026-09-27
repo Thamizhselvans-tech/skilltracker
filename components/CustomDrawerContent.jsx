@@ -3,11 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'rea
 import { DrawerContentScrollView } from '@react-navigation/drawer';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 
 export const CustomDrawerContent = (props) => {
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
   const { user, logout, theme } = useAuth();
 
   const menuItems = [
@@ -22,7 +24,6 @@ export const CustomDrawerContent = (props) => {
     { name: 'Expenses / Purchases', route: '/expenses', icon: 'wallet-outline', activeIcon: 'wallet' },
     { name: 'Progress', route: '/progress', icon: 'stats-chart-outline', activeIcon: 'stats-chart' },
     { name: 'Achievements', route: '/achievements', icon: 'trophy-outline', activeIcon: 'trophy' },
-    { name: 'Startup', route: '/startup', icon: 'rocket-outline', activeIcon: 'rocket' },
     { name: 'Settings', route: '/settings', icon: 'settings-outline', activeIcon: 'settings' },
     { name: 'Profile', route: '/profile', icon: 'person-outline', activeIcon: 'person' },
   ];
@@ -41,7 +42,16 @@ export const CustomDrawerContent = (props) => {
   return (
     <View style={[styles.container, { backgroundColor: theme.surface }]}>
       {/* App Brand Header */}
-      <View style={[styles.brandHeader, { borderBottomColor: theme.border, backgroundColor: theme.background }]}>
+      <View
+        style={[
+          styles.brandHeader,
+          {
+            borderBottomColor: theme.border,
+            backgroundColor: theme.background,
+            paddingTop: insets.top > 0 ? insets.top + 8 : 24,
+          },
+        ]}
+      >
         <Image
           source={require('../assets/logo.png')}
           style={styles.brandLogo}
@@ -49,7 +59,7 @@ export const CustomDrawerContent = (props) => {
         />
         <View style={{ marginLeft: 12 }}>
           <Text style={[styles.brandTitle, { color: theme.text }]}>SkillTracker</Text>
-          <Text style={[styles.brandSubtitle, { color: theme.primary }]}>STUDENT + STARTUP</Text>
+          <Text style={[styles.brandSubtitle, { color: theme.primary }]}>STUDENT PRODUCTIVITY</Text>
         </View>
       </View>
 
@@ -121,7 +131,7 @@ export const CustomDrawerContent = (props) => {
       </DrawerContentScrollView>
 
       {/* 15. Logout at bottom */}
-      <View style={[styles.footer, { borderTopColor: theme.border }]}>
+      <View style={[styles.footer, { borderTopColor: theme.border, paddingBottom: Math.max(insets.bottom, 14) }]}>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Ionicons name="log-out-outline" size={20} color={theme.danger} />
           <Text style={[styles.logoutText, { color: theme.danger }]}>15. Logout</Text>
@@ -136,7 +146,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   brandHeader: {
-    paddingTop: 50,
     paddingBottom: 14,
     paddingHorizontal: 20,
     flexDirection: 'row',

@@ -26,7 +26,7 @@ export const generateExpenseReportPdf = async ({
       <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; color: #64748b;">${
         item.paymentMethod || 'UPI'
       }</td>
-      <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 700; text-align: right; color: #0f172a;">$${Number(
+      <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; font-size: 13px; font-weight: 700; text-align: right; color: #0f172a;">₹${Number(
         item.amount
       ).toFixed(2)}</td>
     </tr>
@@ -39,7 +39,7 @@ export const generateExpenseReportPdf = async ({
       ([cat, amt]) => `
       <div style="flex: 1; min-width: 140px; background: #f1f5f9; padding: 12px 16px; border-radius: 8px; margin: 4px;">
         <div style="font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase;">${cat}</div>
-        <div style="font-size: 18px; color: #1e293b; font-weight: 800; margin-top: 4px;">$${Number(amt).toFixed(2)}</div>
+        <div style="font-size: 18px; color: #1e293b; font-weight: 800; margin-top: 4px;">₹${Number(amt).toFixed(2)}</div>
       </div>
     `
     )
@@ -194,7 +194,7 @@ export const generateExpenseReportPdf = async ({
         <div class="total-box">
           <div class="total-inner">
             <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #c7d2fe;">Total Cumulative Expenditure</div>
-            <div style="font-size: 28px; font-weight: 900; margin-top: 4px;">$${Number(totalAmount).toFixed(2)}</div>
+            <div style="font-size: 28px; font-weight: 900; margin-top: 4px;">₹${Number(totalAmount).toFixed(2)}</div>
           </div>
         </div>
 

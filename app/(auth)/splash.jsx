@@ -27,11 +27,11 @@ export default function SplashScreen() {
 
         <Text style={[styles.brandTitle, { color: theme.text }]}>SkillTracker</Text>
         <Text style={[styles.badge, { backgroundColor: `${theme.accent}20`, color: theme.accent }]}>
-          STUDENT + STARTUP SUITE
+          STUDENT PRODUCTIVITY SUITE
         </Text>
 
         <Text style={[styles.description, { color: theme.textMuted }]}>
-          All-in-one skill tracking, academic schedule, exams, productivity, expense management, and startup builder.
+          All-in-one skill tracking, academic schedule, exams, productivity, and expense management.
         </Text>
       </View>
 

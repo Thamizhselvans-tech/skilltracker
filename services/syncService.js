@@ -1,10 +1,19 @@
-import { getItem, saveItem, getCachedData, setCachedData } from './offlineStorage';
-import { STORAGE_KEYS } from '../constants/storageKeys';
-import { getBaseApiUrl } from './apiUrl';
+import {
+  getItem,
+  saveItem,
+  getCachedData,
+  setCachedData,
+  getOfflineQueue,
+  queueOfflineAction,
+  removeQueueItem,
+  clearOfflineQueue,
+} from './offlineStorage.js';
+import { AUTH_TOKEN, OFFLINE_QUEUE, LAST_SYNC_TIME, STORAGE_KEYS } from '../constants/storageKeys.js';
+import { getBaseApiUrl } from './apiUrl.js';
 
-const TOKEN_KEY = (STORAGE_KEYS && STORAGE_KEYS.AUTH_TOKEN) || '@skilltracker_token';
-const QUEUE_KEY = (STORAGE_KEYS && STORAGE_KEYS.OFFLINE_QUEUE) || '@skilltracker_offline_queue';
-
+const TOKEN_KEY = AUTH_TOKEN || STORAGE_KEYS?.AUTH_TOKEN || '@skilltracker_token';
+const QUEUE_KEY = OFFLINE_QUEUE || STORAGE_KEYS?.OFFLINE_QUEUE || '@skilltracker_offline_queue';
+const SYNC_TIME_KEY = LAST_SYNC_TIME || STORAGE_KEYS?.LAST_SYNC_TIME || '@skilltracker_last_sync_time';
 
 let syncListeners = [];
 
@@ -25,62 +34,16 @@ export const subscribeToSync = (callback) => {
   };
 };
 
-export const getOfflineQueue = async () => {
-  try {
-    const queue = await getItem(QUEUE_KEY);
-    return Array.isArray(queue) ? queue : [];
-  } catch (e) {
-    console.error('[getOfflineQueue error]', e);
-    return [];
-  }
-};
-
 export const getPendingSyncCount = async () => {
   const queue = await getOfflineQueue();
   return queue.length;
-};
-
-export const queueOfflineAction = async (action) => {
-  try {
-    const queue = await getOfflineQueue();
-    const actionItem = {
-      id: 'act_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
-      timestamp: Date.now(),
-      retries: 0,
-      ...action,
-    };
-    queue.push(actionItem);
-    await saveItem(QUEUE_KEY, queue);
-    notifySyncListeners({ type: 'queued', action: actionItem, pendingCount: queue.length });
-    return actionItem;
-  } catch (e) {
-    console.error('[queueOfflineAction error]', e);
-    return null;
-  }
-};
-
-export const removeQueueItem = async (actionId) => {
-  try {
-    const queue = await getOfflineQueue();
-    const filtered = queue.filter((item) => item.id !== actionId);
-    await saveItem(QUEUE_KEY, filtered);
-    notifySyncListeners({ type: 'removed', pendingCount: filtered.length });
-    return filtered;
-  } catch (e) {
-    console.error('[removeQueueItem error]', e);
-  }
-};
-
-export const clearOfflineQueue = async () => {
-  await saveItem(QUEUE_KEY, []);
-  notifySyncListeners({ type: 'cleared', pendingCount: 0 });
 };
 
 export const checkServerReachability = async () => {
   try {
     const baseUrl = await getBaseApiUrl();
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
     const res = await fetch(`${baseUrl}/api/health`, {
       method: 'GET',
       signal: controller.signal,
@@ -131,7 +94,7 @@ export const syncOfflineQueue = async () => {
       }
 
       const controller = new AbortController();
-      const tid = setTimeout(() => controller.abort(), 3500);
+      const tid = setTimeout(() => controller.abort(), 4000);
       options.signal = controller.signal;
 
       const response = await fetch(url, options);
@@ -160,10 +123,10 @@ export const syncOfflineQueue = async () => {
           }
         }
       } else if (response.status >= 400 && response.status < 500) {
-        // Bad request or schema violation - discard corrupted queue item
+        // Bad request or validation error - discard corrupted queue item
         console.warn(`[Sync skipped invalid action ${action.id}]: Status ${response.status}`);
       } else {
-        // Server 5xx error or connection drop - keep for next sync retry
+        // Server 5xx error - keep for next retry
         action.retries = (action.retries || 0) + 1;
         remainingQueue.push(action);
       }
@@ -176,7 +139,7 @@ export const syncOfflineQueue = async () => {
   }
 
   await saveItem(QUEUE_KEY, remainingQueue);
-  await saveItem('@skilltracker_last_sync_time', Date.now());
+  await saveItem(SYNC_TIME_KEY, Date.now());
 
   notifySyncListeners({
     type: 'sync_finish',

@@ -2,19 +2,31 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import { useNetworkSync } from '../hooks/useNetworkSync';
 import { SyncStatusModal } from './SyncStatusModal';
 
 export const Header = ({ title, rightComponent, showBack = false }) => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { theme, toggleTheme, themeMode } = useAuth();
   const { isOnline, isSyncing, pendingCount, lastSyncTime, syncNow } = useNetworkSync();
   const [modalVisible, setModalVisible] = useState(false);
 
   return (
     <>
-      <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: theme.surface,
+            borderBottomColor: theme.border,
+            paddingTop: insets.top > 0 ? insets.top : 10,
+            height: (insets.top > 0 ? insets.top : 10) + 54,
+          },
+        ]}
+      >
         <View style={styles.left}>
           {showBack ? (
             <TouchableOpacity
@@ -110,7 +122,6 @@ export const Header = ({ title, rightComponent, showBack = false }) => {
 
 const styles = StyleSheet.create({
   header: {
-    height: 58,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -121,21 +132,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    marginRight: 8,
   },
   iconButton: {
     padding: 6,
-    marginRight: 10,
+    marginRight: 8,
     borderRadius: 8,
   },
   title: {
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: '700',
     flex: 1,
+    flexShrink: 1,
   },
   right: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    flexShrink: 0,
+    gap: 6,
   },
   themeButton: {
     width: 36,

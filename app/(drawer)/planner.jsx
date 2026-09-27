@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../../components/Header';
@@ -18,6 +20,7 @@ import { SearchFilterBar } from '../../components/SearchFilterBar';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { EmptyState } from '../../components/EmptyState';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../services/api';
+import { getCachedData } from '../../services/offlineStorage';
 import { TASK_PRIORITIES, TASK_STATUSES } from '../../constants/config';
 import { scheduleLocalReminder } from '../../services/notificationService';
 import { useAuth } from '../../hooks/useAuth';
@@ -53,6 +56,29 @@ export default function PlannerScreen() {
   // Delete modal
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
+
+  // 1. Load cached data immediately on mount (< 30ms render)
+  useEffect(() => {
+    let isMounted = true;
+    const initLoad = async () => {
+      try {
+        const cached = await getCachedData('/api/planner');
+        if (cached && isMounted) {
+          const list = cached.data || cached.tasks || (Array.isArray(cached) ? cached : []);
+          if (list.length > 0) {
+            setTasks(list);
+            setLoading(false);
+          }
+        }
+      } catch (e) {
+        console.warn('Error reading planner cache:', e);
+      }
+    };
+    initLoad();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -312,7 +338,10 @@ export default function PlannerScreen() {
 
       {/* Add / Edit Task Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
           <View style={[styles.modalContent, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>
@@ -381,7 +410,7 @@ export default function PlannerScreen() {
               <Text style={[styles.fieldLabel, { color: theme.text }]}>Category</Text>
               <TextInput
                 style={[styles.modalInput, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.border }]}
-                placeholder="Academic, Startup, Skill, Personal..."
+                placeholder="Academic, Project, Skill, Personal..."
                 placeholderTextColor={theme.textSubtle}
                 value={formData.category}
                 onChangeText={(v) => setFormData((p) => ({ ...p, category: v }))}
@@ -419,7 +448,7 @@ export default function PlannerScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <ConfirmModal

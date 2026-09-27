@@ -1,10 +1,5 @@
-import { Platform } from 'react-native';
-
-export const DEFAULT_API_URL = Platform.select({
-  android: 'http://10.10.6.138:5000', // Wi-Fi / LAN IP of backend server
-  ios: 'http://localhost:5000',
-  default: 'http://localhost:5000',
-});
+export const DEFAULT_API_URL =
+  process.env.EXPO_PUBLIC_API_URL || 'https://skilltracker-api.onrender.com';
 
 export const SKILL_CATEGORIES = [
   'All',

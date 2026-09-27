@@ -101,7 +101,7 @@ export default function HomeScreen() {
                 </Text>
                 <Text style={[styles.welcomeSub, { color: theme.textMuted }]}>
                   {user?.college ? `${user.college} • ` : ''}
-                  {user?.department || 'Academic & Startup Track'}
+                  {user?.department || 'Academic & Skills Track'}
                 </Text>
               </View>
               <View style={[styles.progressBadge, { backgroundColor: `${theme.primary}18`, borderColor: theme.primary }]}>
@@ -146,7 +146,7 @@ export default function HomeScreen() {
             />
             <StatCard
               title="Monthly Spend"
-              value={`$${Number(dashboardData?.expenses?.monthTotal ?? 0).toFixed(2)}`}
+              value={`₹${Number(dashboardData?.expenses?.monthTotal ?? 0).toFixed(2)}`}
               subtitle={`${dashboardData?.expenses?.count ?? 0} purchases`}
               icon="wallet-outline"
               iconColor="#EC4899"
@@ -272,48 +272,6 @@ export default function HomeScreen() {
               </Text>
             </View>
           )}
-
-          {/* Startup Summary ⭐⭐⭐ */}
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Startup Management ⭐⭐⭐</Text>
-            <TouchableOpacity onPress={() => router.push('/(drawer)/startup')}>
-              <Text style={[styles.viewAll, { color: theme.primary }]}>Manage Startup</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={[styles.startupBox, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <View style={styles.startupHeader}>
-              <Ionicons name="rocket-outline" size={22} color={theme.primary} />
-              <Text style={[styles.startupBoxTitle, { color: theme.text }]}>Business Pipeline</Text>
-            </View>
-
-            <View style={styles.startupMetricsRow}>
-              <View style={styles.startupMetricItem}>
-                <Text style={[styles.startupNum, { color: theme.primary }]}>
-                  {dashboardData?.startup?.totalClients ?? 0}
-                </Text>
-                <Text style={[styles.startupLabel, { color: theme.textMuted }]}>Clients</Text>
-              </View>
-              <View style={styles.startupMetricItem}>
-                <Text style={[styles.startupNum, { color: '#10B981' }]}>
-                  {dashboardData?.startup?.activeProjects ?? 0}
-                </Text>
-                <Text style={[styles.startupLabel, { color: theme.textMuted }]}>Active Proj</Text>
-              </View>
-              <View style={styles.startupMetricItem}>
-                <Text style={[styles.startupNum, { color: '#F59E0B' }]}>
-                  {dashboardData?.startup?.teamMembers ?? 0}
-                </Text>
-                <Text style={[styles.startupLabel, { color: theme.textMuted }]}>Members</Text>
-              </View>
-              <View style={styles.startupMetricItem}>
-                <Text style={[styles.startupNum, { color: '#EC4899' }]}>
-                  ${dashboardData?.startup?.totalBudget ?? 0}
-                </Text>
-                <Text style={[styles.startupLabel, { color: theme.textMuted }]}>Budget</Text>
-              </View>
-            </View>
-          </View>
 
           {/* Achievements Summary */}
           <TouchableOpacity
@@ -530,37 +488,6 @@ const styles = StyleSheet.create({
   emptyClassText: {
     fontSize: 13,
     textAlign: 'center',
-  },
-  startupBox: {
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1,
-  },
-  startupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  startupBoxTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  startupMetricsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  startupMetricItem: {
-    alignItems: 'center',
-  },
-  startupNum: {
-    fontSize: 20,
-    fontWeight: '900',
-  },
-  startupLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 2,
   },
   achievementBanner: {
     flexDirection: 'row',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../../components/Header';
@@ -21,19 +23,18 @@ import { StatCard } from '../../components/StatCard';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../services/api';
 import { EXPENSE_CATEGORIES } from '../../constants/config';
 import { generateExpenseReportPdf, sharePdf } from '../../services/pdfService';
+import { getCachedData, setCachedData } from '../../services/offlineStorage';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function ExpensesScreen() {
   const { user, theme } = useAuth();
 
-  const [expenses, setExpenses] = useState([]);
-  const [totalAmount, setTotalAmount] = useState(0);
-  const [categoryBreakdown, setCategoryBreakdown] = useState({});
+  const [allExpenses, setAllExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [pdfGenerating, setPdfGenerating] = useState(false);
 
-  // Search & Filter
+  // Instant local Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
 
@@ -57,37 +58,77 @@ export default function ExpensesScreen() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
 
-  const fetchExpenses = useCallback(async () => {
-    try {
-      let endpoint = '/api/expenses';
-      const params = [];
-      if (searchQuery) params.push(`search=${encodeURIComponent(searchQuery)}`);
-      if (selectedCategory !== 'All') params.push(`category=${encodeURIComponent(selectedCategory)}`);
-      if (params.length > 0) endpoint += `?${params.join('&')}`;
+  // 1. Load cached data immediately on mount (zero waiting!)
+  useEffect(() => {
+    let isMounted = true;
 
-      const res = await apiGet(endpoint);
+    const initLoad = async () => {
+      try {
+        const cached = await getCachedData('/api/expenses');
+        if (cached && isMounted) {
+          const list = cached.data || cached.expenses || (Array.isArray(cached) ? cached : []);
+          setAllExpenses(list);
+          setLoading(false);
+        }
+      } catch (e) {
+        console.warn('Error reading expense cache:', e);
+      }
+
+      // Fetch fresh in background
+      await fetchExpensesSilently();
+      if (isMounted) setLoading(false);
+    };
+
+    initLoad();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const fetchExpensesSilently = async () => {
+    try {
+      const res = await apiGet('/api/expenses');
       if (res.success && res.data) {
         const list = res.data.data || res.data.expenses || (Array.isArray(res.data) ? res.data : []);
-        setExpenses(list);
-        setTotalAmount(res.data.totalAmount || list.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0));
-        setCategoryBreakdown(res.data.categoryBreakdown || {});
+        setAllExpenses(list);
+        await setCachedData('/api/expenses', res.data);
       }
     } catch (err) {
-      console.warn('Expenses fetch error:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      console.warn('Expenses silent fetch warning:', err.message);
     }
-  }, [searchQuery, selectedCategory]);
-
-  useEffect(() => {
-    fetchExpenses();
-  }, [fetchExpenses]);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchExpenses();
   };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchExpensesSilently();
+    setRefreshing(false);
+  };
+
+  // 2. In-memory instant filtering
+  const filteredExpenses = useMemo(() => {
+    return allExpenses.filter((item) => {
+      const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
+      const q = searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        (item.itemName && item.itemName.toLowerCase().includes(q)) ||
+        (item.notes && item.notes.toLowerCase().includes(q));
+      return matchesCategory && matchesSearch;
+    });
+  }, [allExpenses, searchQuery, selectedCategory]);
+
+  const totalAmount = useMemo(() => {
+    return allExpenses.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+  }, [allExpenses]);
+
+  const categoryBreakdown = useMemo(() => {
+    const map = {};
+    allExpenses.forEach((item) => {
+      const cat = item.category || 'General';
+      map[cat] = (map[cat] || 0) + (parseFloat(item.amount) || 0);
+    });
+    return map;
+  }, [allExpenses]);
 
   const handleOpenAdd = () => {
     setIsEditing(false);
@@ -131,27 +172,47 @@ export default function ExpensesScreen() {
     }
 
     setFormLoading(true);
-    let res;
+
     if (isEditing) {
       const updated = { ...formData, amount: parsedAmount };
       // Optimistic update
-      setExpenses((prev) => prev.map((e) => (e._id === currentId ? { ...e, ...updated } : e)));
-      res = await apiPut(`/api/expenses/${currentId}`, updated);
-    } else {
-      const tempId = 'loc_' + Date.now();
-      const newExpense = { _id: tempId, ...formData, amount: parsedAmount, createdAt: new Date().toISOString() };
-      // Optimistic prepend
-      setExpenses((prev) => [newExpense, ...prev]);
-      setTotalAmount((prev) => prev + parsedAmount);
-      res = await apiPost('/api/expenses', { ...formData, amount: parsedAmount, _id: tempId });
-    }
-    setFormLoading(false);
-
-    if (res.success) {
+      const updatedList = allExpenses.map((e) => (e._id === currentId ? { ...e, ...updated } : e));
+      setAllExpenses(updatedList);
+      setCachedData('/api/expenses', { expenses: updatedList, totalAmount: totalAmount });
       setModalVisible(false);
-      fetchExpenses();
+      setFormLoading(false);
+
+      apiPut(`/api/expenses/${currentId}`, updated).then((res) => {
+        if (!res.success) {
+          console.warn('Edit expense queued/offline:', res.error);
+        }
+      });
     } else {
-      Alert.alert('Notice', res.error || 'Saved locally');
+      const tempId = 'temp_' + Date.now();
+      const newExpense = {
+        _id: tempId,
+        ...formData,
+        amount: parsedAmount,
+        createdAt: new Date().toISOString(),
+      };
+      // Optimistic prepend
+      const updatedList = [newExpense, ...allExpenses];
+      setAllExpenses(updatedList);
+      setCachedData('/api/expenses', { expenses: updatedList, totalAmount: totalAmount + parsedAmount });
+      setModalVisible(false);
+      setFormLoading(false);
+
+      apiPost('/api/expenses', { ...formData, amount: parsedAmount, _id: tempId }).then((res) => {
+        if (res.success && res.data) {
+          // If server created a real ID, reconcile it
+          const realItem = res.data.expense || res.data.data || res.data;
+          if (realItem?._id) {
+            setAllExpenses((prev) =>
+              prev.map((e) => (e._id === tempId ? { ...e, _id: realItem._id } : e))
+            );
+          }
+        }
+      });
     }
   };
 
@@ -164,16 +225,17 @@ export default function ExpensesScreen() {
     if (!itemToDelete) return;
     const targetId = itemToDelete._id;
     // Optimistic delete
-    setExpenses((prev) => prev.filter((e) => e._id !== targetId));
-    setTotalAmount((prev) => Math.max(0, prev - (parseFloat(itemToDelete.amount) || 0)));
+    const updatedList = allExpenses.filter((e) => e._id !== targetId);
+    setAllExpenses(updatedList);
     setDeleteModalVisible(false);
     setItemToDelete(null);
+    setCachedData('/api/expenses', { expenses: updatedList });
 
-    const res = await apiDelete(`/api/expenses/${targetId}`);
-    if (!res.success) {
-      console.warn('Delete queued or failed:', res.error);
-    }
-    fetchExpenses();
+    apiDelete(`/api/expenses/${targetId}`).then((res) => {
+      if (!res.success) {
+        console.warn('Delete queued or failed:', res.error);
+      }
+    });
   };
 
   const handleExportPdf = async () => {
@@ -181,7 +243,7 @@ export default function ExpensesScreen() {
       setPdfGenerating(true);
       const pdfUri = await generateExpenseReportPdf({
         user,
-        expenses,
+        expenses: filteredExpenses,
         categorySummary: categoryBreakdown,
         totalAmount,
       });
@@ -214,7 +276,7 @@ export default function ExpensesScreen() {
       </View>
 
       <View style={styles.cardRight}>
-        <Text style={[styles.itemAmount, { color: theme.text }]}>${Number(item.amount).toFixed(2)}</Text>
+        <Text style={[styles.itemAmount, { color: theme.text }]}>₹{Number(item.amount).toFixed(2)}</Text>
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={[styles.actionBtn, { backgroundColor: theme.inputBackground }]}
@@ -242,7 +304,7 @@ export default function ExpensesScreen() {
             <TouchableOpacity
               style={[styles.pdfButton, { backgroundColor: theme.surface, borderColor: theme.border }]}
               onPress={handleExportPdf}
-              disabled={pdfGenerating || expenses.length === 0}
+              disabled={pdfGenerating || allExpenses.length === 0}
             >
               {pdfGenerating ? (
                 <ActivityIndicator size="small" color={theme.primary} />
@@ -266,8 +328,8 @@ export default function ExpensesScreen() {
       <View style={[styles.overviewBanner, { backgroundColor: theme.surface, borderColor: theme.cardBorder }]}>
         <View>
           <Text style={[styles.bannerLabel, { color: theme.textMuted }]}>TOTAL EXPENDITURE</Text>
-          <Text style={[styles.bannerAmount, { color: theme.text }]}>${Number(totalAmount).toFixed(2)}</Text>
-          <Text style={[styles.bannerSub, { color: theme.textSubtle }]}>{expenses.length} total entries recorded</Text>
+          <Text style={[styles.bannerAmount, { color: theme.text }]}>₹{Number(totalAmount).toFixed(2)}</Text>
+          <Text style={[styles.bannerSub, { color: theme.textSubtle }]}>{allExpenses.length} total entries recorded</Text>
         </View>
         <View style={[styles.bannerIconWrap, { backgroundColor: `${theme.accent}18` }]}>
           <Ionicons name="wallet" size={32} color={theme.accent} />
@@ -283,13 +345,13 @@ export default function ExpensesScreen() {
         onFilterChange={setSelectedCategory}
       />
 
-      {loading ? (
+      {loading && allExpenses.length === 0 ? (
         <View style={styles.loader}>
           <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <FlatList
-          data={expenses}
+          data={filteredExpenses}
           keyExtractor={(item) => item._id}
           renderItem={renderExpenseCard}
           contentContainerStyle={styles.listContent}
@@ -308,7 +370,10 @@ export default function ExpensesScreen() {
 
       {/* Add / Edit Expense Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
           <View style={[styles.modalContent, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>
@@ -331,7 +396,7 @@ export default function ExpensesScreen() {
 
               <View style={styles.formRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.fieldLabel, { color: theme.text }]}>Amount ($) *</Text>
+                  <Text style={[styles.fieldLabel, { color: theme.text }]}>Amount (₹) *</Text>
                   <TextInput
                     style={[styles.modalInput, { backgroundColor: theme.inputBackground, color: theme.text, borderColor: theme.border }]}
                     placeholder="45.00"
@@ -431,7 +496,7 @@ export default function ExpensesScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <ConfirmModal

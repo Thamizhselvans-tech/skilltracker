@@ -1,16 +1,21 @@
-import { DEFAULT_API_URL } from '../constants/config';
-import { STORAGE_KEYS } from '../constants/storageKeys';
-import { getItem, saveItem, getCachedData, setCachedData } from './offlineStorage';
-import { getBaseApiUrl, setCustomApiUrl } from './apiUrl';
+import { DEFAULT_API_URL } from '../constants/config.js';
+import { AUTH_TOKEN, STORAGE_KEYS } from '../constants/storageKeys.js';
+import {
+  getItem,
+  saveItem,
+  getCachedData,
+  setCachedData,
+  queueOfflineAction,
+} from './offlineStorage.js';
+import { getBaseApiUrl, setCustomApiUrl } from './apiUrl.js';
 
 export { getBaseApiUrl, setCustomApiUrl };
 
-const TOKEN_STORAGE_KEY = (STORAGE_KEYS && STORAGE_KEYS.AUTH_TOKEN) || '@skilltracker_token';
+const TOKEN_STORAGE_KEY = AUTH_TOKEN || STORAGE_KEYS?.AUTH_TOKEN || '@skilltracker_token';
 
 export const requestApi = async (endpoint, method = 'GET', body = null) => {
   const baseUrl = await getBaseApiUrl();
   const token = await getItem(TOKEN_STORAGE_KEY);
-
 
   const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
@@ -34,7 +39,7 @@ export const requestApi = async (endpoint, method = 'GET', body = null) => {
 
   try {
     const isAuth = endpoint.includes('/auth');
-    const timeoutDuration = isAuth ? 2500 : 4000;
+    const timeoutDuration = isAuth ? 3000 : 4500;
 
     let timeoutId;
     const timeoutPromise = new Promise((_, reject) => {
@@ -55,7 +60,10 @@ export const requestApi = async (endpoint, method = 'GET', body = null) => {
       }
 
       if (!response.ok) {
-        throw new Error(data.message || `Request failed with status ${response.status}`);
+        const error = new Error(data.message || `Request failed with status ${response.status}`);
+        error.status = response.status;
+        error.data = data;
+        throw error;
       }
 
       return data;
@@ -90,12 +98,16 @@ export const requestApi = async (endpoint, method = 'GET', body = null) => {
     }
 
     const isTimeout = error.name === 'TimeoutError' || error.message === 'NETWORK_TIMEOUT';
-    const isNetworkAbort = isTimeout || error.name === 'AbortError' || error.message?.includes('aborted') || error.message?.includes('Network request failed');
+    const isNetworkAbort =
+      isTimeout ||
+      error.name === 'AbortError' ||
+      error.message?.includes('aborted') ||
+      error.message?.includes('Network request failed') ||
+      error.message?.includes('Failed to fetch');
 
-    // For non-auth mutations (POST, PUT, DELETE), queue for automatic sync when back online
-    if (isNetworkAbort && method !== 'GET' && !endpoint.includes('/auth')) {
+    // For non-auth mutations (POST, PUT, DELETE), queue for automatic sync when server or database is unreachable
+    if ((isNetworkAbort || error.status === 503) && method !== 'GET' && !endpoint.includes('/auth')) {
       try {
-        const { queueOfflineAction } = require('./syncService');
         const inferCollectionKey = (ep) => {
           if (ep.includes('skills')) return 'skills';
           if (ep.includes('planner')) return 'tasks';
@@ -104,14 +116,13 @@ export const requestApi = async (endpoint, method = 'GET', body = null) => {
           if (ep.includes('external-exams')) return 'externalExams';
           if (ep.includes('expenses')) return 'expenses';
           if (ep.includes('practice')) return 'sessions';
-          if (ep.includes('startup')) return 'projects';
           return 'items';
         };
 
         const tempId = body?._id || body?.id || ('temp_' + Date.now());
         const collectionKey = inferCollectionKey(endpoint);
 
-        queueOfflineAction({
+        await queueOfflineAction({
           endpoint,
           method,
           body,
@@ -138,8 +149,9 @@ export const requestApi = async (endpoint, method = 'GET', body = null) => {
     return {
       success: false,
       error: helpfulMsg,
+      status: error.status || 0,
       isNetworkError: isNetworkAbort,
-      isOffline: true,
+      isOffline: isNetworkAbort,
     };
   }
 };

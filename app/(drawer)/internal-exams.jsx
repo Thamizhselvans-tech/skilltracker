@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../../components/Header';
@@ -18,8 +20,24 @@ import { SearchFilterBar } from '../../components/SearchFilterBar';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { EmptyState } from '../../components/EmptyState';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../services/api';
+import { getCachedData } from '../../services/offlineStorage';
 import { INTERNAL_EXAM_TYPES } from '../../constants/config';
 import { useAuth } from '../../hooks/useAuth';
+
+const parseTimeToMinutes = (timeStr) => {
+  if (!timeStr) return null;
+  const cleaned = timeStr.trim();
+  const match12 = cleaned.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (match12) {
+    let hours = parseInt(match12[1], 10);
+    const minutes = parseInt(match12[2], 10);
+    const modifier = match12[3] ? match12[3].toUpperCase() : null;
+    if (modifier === 'PM' && hours < 12) hours += 12;
+    if (modifier === 'AM' && hours === 12) hours = 0;
+    return hours * 60 + minutes;
+  }
+  return null;
+};
 
 export default function InternalExamsScreen() {
   const { theme } = useAuth();
@@ -32,6 +50,7 @@ export default function InternalExamsScreen() {
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState('All');
+  const [upcomingOnly, setUpcomingOnly] = useState(false);
 
   // Add / Edit Modal
   const [modalVisible, setModalVisible] = useState(false);
@@ -54,6 +73,30 @@ export default function InternalExamsScreen() {
   // Delete Confirm Modal
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
+
+  // 1. Load cached data immediately on mount (< 30ms render)
+  useEffect(() => {
+    let isMounted = true;
+    const initLoad = async () => {
+      try {
+        const cached = await getCachedData('/api/internal-exams');
+        if (cached && isMounted) {
+          const list = cached.data || cached.internalExams || (Array.isArray(cached) ? cached : []);
+          if (list.length > 0) {
+            setExams(list);
+            setNextExamId(cached.nextExamId || (list[0] ? list[0]._id : null));
+            setLoading(false);
+          }
+        }
+      } catch (e) {
+        console.warn('Error reading internal-exams cache:', e);
+      }
+    };
+    initLoad();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const fetchExams = useCallback(async () => {
     try {
@@ -125,16 +168,27 @@ export default function InternalExamsScreen() {
       return;
     }
 
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(examDate.trim()) || isNaN(new Date(examDate).getTime())) {
+      Alert.alert('Validation Error', 'Please enter a valid date in YYYY-MM-DD format (e.g. 2026-09-25).');
+      return;
+    }
+
+    const startMins = parseTimeToMinutes(startTime);
+    const endMins = parseTimeToMinutes(endTime);
+    if (startMins !== null && endMins !== null && endMins <= startMins) {
+      Alert.alert('Validation Error', 'End time must be after start time (e.g. Start 09:30 AM, End 11:30 AM).');
+      return;
+    }
+
     setFormLoading(true);
     let res;
     if (isEditing) {
-      // Optimistic update
       setExams((prev) => prev.map((e) => (e._id === currentId ? { ...e, ...formData } : e)));
       res = await apiPut(`/api/internal-exams/${currentId}`, formData);
     } else {
       const tempId = 'loc_' + Date.now();
       const newExam = { _id: tempId, ...formData, createdAt: new Date().toISOString() };
-      // Optimistic prepend
       setExams((prev) => [newExam, ...prev]);
       res = await apiPost('/api/internal-exams', { ...formData, _id: tempId });
     }
@@ -246,6 +300,11 @@ export default function InternalExamsScreen() {
     );
   };
 
+  const displayedExams = useMemo(() => {
+    if (!upcomingOnly) return exams;
+    return exams.filter((e) => e.examDate >= todayStr);
+  }, [exams, upcomingOnly, todayStr]);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Header
@@ -267,13 +326,39 @@ export default function InternalExamsScreen() {
         onFilterChange={setSelectedType}
       />
 
+      <View style={styles.filterRowExtra}>
+        <TouchableOpacity
+          style={[
+            styles.toggleChip,
+            {
+              backgroundColor: upcomingOnly ? theme.primary : theme.card,
+              borderColor: upcomingOnly ? theme.primary : theme.border,
+            },
+          ]}
+          onPress={() => setUpcomingOnly(!upcomingOnly)}
+        >
+          <Ionicons
+            name={upcomingOnly ? 'calendar' : 'calendar-outline'}
+            size={14}
+            color={upcomingOnly ? '#FFFFFF' : theme.textMuted}
+            style={{ marginRight: 6 }}
+          />
+          <Text style={{ color: upcomingOnly ? '#FFFFFF' : theme.text, fontSize: 12, fontWeight: '700' }}>
+            {upcomingOnly ? 'Upcoming Exams Only' : 'Filter: Upcoming Only'}
+          </Text>
+        </TouchableOpacity>
+        <Text style={[styles.countBadge, { color: theme.textMuted }]}>
+          {displayedExams.length} {displayedExams.length === 1 ? 'Exam' : 'Exams'}
+        </Text>
+      </View>
+
       {loading ? (
         <View style={styles.loader}>
           <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <FlatList
-          data={exams}
+          data={displayedExams}
           keyExtractor={(item) => item._id}
           renderItem={renderExamCard}
           contentContainerStyle={styles.listContent}
@@ -281,7 +366,7 @@ export default function InternalExamsScreen() {
           ListEmptyComponent={
             <EmptyState
               icon="document-text-outline"
-              title="No internal exams added yet."
+              title="No internal exams found."
               message="Add unit tests, mid-terms, and internal practicals to track dates and room locations."
               buttonText="Add Internal Exam"
               onPress={handleOpenAdd}
@@ -292,7 +377,10 @@ export default function InternalExamsScreen() {
 
       {/* Add / Edit Exam Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
           <View style={[styles.modalContent, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>
@@ -421,7 +509,7 @@ export default function InternalExamsScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Delete Confirmation Modal with prompt specification: "Are you sure you want to delete this exam?" */}
@@ -631,5 +719,24 @@ const styles = StyleSheet.create({
   btnText: {
     fontWeight: '700',
     fontSize: 14,
+  },
+  filterRowExtra: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  toggleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  countBadge: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

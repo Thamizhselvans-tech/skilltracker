@@ -1,10 +1,13 @@
 import React from 'react';
+import { useWindowDimensions } from 'react-native';
 import { Drawer } from 'expo-router/drawer';
 import CustomDrawerContent from '../../components/CustomDrawerContent';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function DrawerLayout() {
   const { theme } = useAuth();
+  const { width } = useWindowDimensions();
+  const responsiveDrawerWidth = Math.min(320, Math.max(260, Math.round(width * 0.82)));
 
   return (
     <Drawer
@@ -14,7 +17,7 @@ export default function DrawerLayout() {
         drawerType: 'front',
         drawerStyle: {
           backgroundColor: theme.surface,
-          width: 300,
+          width: responsiveDrawerWidth,
         },
         swipeEdgeWidth: 80,
       }}
@@ -30,7 +33,6 @@ export default function DrawerLayout() {
       <Drawer.Screen name="expenses" options={{ title: 'Expenses / Purchases' }} />
       <Drawer.Screen name="progress" options={{ title: 'Progress' }} />
       <Drawer.Screen name="achievements" options={{ title: 'Achievements' }} />
-      <Drawer.Screen name="startup" options={{ title: 'Startup' }} />
       <Drawer.Screen name="settings" options={{ title: 'Settings' }} />
       <Drawer.Screen name="profile" options={{ title: 'Profile' }} />
     </Drawer>

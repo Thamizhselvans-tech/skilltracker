@@ -12,6 +12,7 @@ import { Header } from '../../components/Header';
 import { StatCard } from '../../components/StatCard';
 import { ProgressBar } from '../../components/ProgressBar';
 import { apiGet } from '../../services/api';
+import { getCachedData } from '../../services/offlineStorage';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function ProgressScreen() {
@@ -20,6 +21,29 @@ export default function ProgressScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState(null);
+
+  // 1. Load cached data immediately on mount (< 30ms render)
+  useEffect(() => {
+    let isMounted = true;
+    const initLoad = async () => {
+      try {
+        const cached = await getCachedData('/api/progress/dashboard');
+        if (cached && isMounted) {
+          const dash = cached.data || cached;
+          if (dash && (dash.skills || dash.tasks)) {
+            setData(dash);
+            setLoading(false);
+          }
+        }
+      } catch (e) {
+        console.warn('Error reading progress cache:', e);
+      }
+    };
+    initLoad();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const fetchProgress = useCallback(async () => {
     try {
@@ -135,28 +159,6 @@ export default function ProgressScreen() {
               ))
             )}
           </View>
-
-          {/* Startup Venture Analytics */}
-          <View style={[styles.skillsBreakdownBox, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
-            <Text style={[styles.boxTitle, { color: theme.text }]}>Startup Commercial Pipeline</Text>
-            <View style={styles.startupMetricRow}>
-              <View style={styles.smItem}>
-                <Ionicons name="people-outline" size={20} color={theme.primary} />
-                <Text style={[styles.smValue, { color: theme.text }]}>{data?.startup?.totalClients || 0}</Text>
-                <Text style={[styles.smLabel, { color: theme.textMuted }]}>Clients</Text>
-              </View>
-              <View style={styles.smItem}>
-                <Ionicons name="construct-outline" size={20} color="#10B981" />
-                <Text style={[styles.smValue, { color: theme.text }]}>{data?.startup?.activeProjects || 0}</Text>
-                <Text style={[styles.smLabel, { color: theme.textMuted }]}>Active Proj</Text>
-              </View>
-              <View style={styles.smItem}>
-                <Ionicons name="cash-outline" size={20} color="#EC4899" />
-                <Text style={[styles.smValue, { color: theme.text }]}>${data?.startup?.totalBudget || 0}</Text>
-                <Text style={[styles.smLabel, { color: theme.textMuted }]}>Pipeline Rev</Text>
-              </View>
-            </View>
-          </View>
         </ScrollView>
       )}
     </View>
@@ -245,21 +247,5 @@ const styles = StyleSheet.create({
   skillPercent: {
     fontSize: 13,
     fontWeight: '700',
-  },
-  startupMetricRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 10,
-  },
-  smItem: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  smValue: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  smLabel: {
-    fontSize: 11,
   },
 });

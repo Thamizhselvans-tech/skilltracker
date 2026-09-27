@@ -11,12 +11,15 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../../components/Header';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { EmptyState } from '../../components/EmptyState';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../services/api';
+import { getCachedData } from '../../services/offlineStorage';
 import { DAYS_OF_WEEK } from '../../constants/config';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -47,11 +50,35 @@ export default function TimetableScreen() {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
 
+  // 1. Load cached data immediately on mount (< 30ms render)
+  useEffect(() => {
+    let isMounted = true;
+    const initLoad = async () => {
+      try {
+        const cached = await getCachedData('/api/timetable');
+        if (cached && isMounted) {
+          const classList = cached.data || cached.timetable || (Array.isArray(cached) ? cached : []);
+          if (classList.length > 0) {
+            setClasses(classList.filter(c => !selectedDay || c.day === selectedDay));
+            setLoading(false);
+          }
+        }
+      } catch (e) {
+        console.warn('Error reading timetable cache:', e);
+      }
+    };
+    initLoad();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedDay]);
+
   const fetchTimetable = useCallback(async () => {
     try {
       const res = await apiGet(`/api/timetable?day=${selectedDay}`);
-      if (res.success && res.data?.data) {
-        setClasses(res.data.data);
+      if (res.success && res.data) {
+        const classList = res.data.data || res.data.timetable || (Array.isArray(res.data) ? res.data : []);
+        setClasses(classList);
       }
     } catch (err) {
       console.warn('Timetable fetch error:', err);
@@ -253,7 +280,10 @@ export default function TimetableScreen() {
 
       {/* Add / Edit Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
           <View style={[styles.modalContent, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>
@@ -366,7 +396,7 @@ export default function TimetableScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <ConfirmModal

@@ -146,7 +146,7 @@ export default function LoginScreen() {
           </View>
           <Text style={[styles.title, { color: theme.text }]}>SkillTracker</Text>
           <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-            Student Skill & Startup Management System
+            Student Skill & Academic Productivity Suite
           </Text>
         </View>
 
@@ -155,21 +155,17 @@ export default function LoginScreen() {
             <Ionicons name="alert-circle" size={20} color={theme.danger} style={{ marginRight: 8, marginTop: 2 }} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.errorText, { color: theme.danger }]}>{errorMsg}</Text>
-              <View style={styles.errorActionsRow}>
-                <TouchableOpacity
-                  style={[styles.quickDemoActionBtn, { backgroundColor: theme.primary }]}
-                  onPress={handleDemoLogin}
-                >
-                  <Ionicons name="flash" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
-                  <Text style={styles.quickDemoActionText}>Instant Offline Demo</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.quickIpActionBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}
-                  onPress={() => setModalVisible(true)}
-                >
-                  <Text style={[styles.quickIpActionText, { color: theme.text }]}>Edit IP</Text>
-                </TouchableOpacity>
-              </View>
+              {errorMsg.toLowerCase().includes('cannot reach server') || errorMsg.toLowerCase().includes('network') ? (
+                <View style={styles.errorActionsRow}>
+                  <TouchableOpacity
+                    style={[styles.quickIpActionBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}
+                    onPress={() => setModalVisible(true)}
+                  >
+                    <Ionicons name="settings-outline" size={14} color={theme.primary} style={{ marginRight: 4 }} />
+                    <Text style={[styles.quickIpActionText, { color: theme.text }]}>Configure Server IP</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
             </View>
           </View>
         ) : null}
@@ -222,28 +218,12 @@ export default function LoginScreen() {
           <TouchableOpacity
             style={[styles.submitBtn, { backgroundColor: theme.primary }]}
             onPress={handleLogin}
-            disabled={loading || demoLoading}
+            disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={styles.submitBtnText}>Sign In</Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Instant Demo Login Button */}
-          <TouchableOpacity
-            style={[styles.demoBtn, { backgroundColor: '#059669' }]}
-            onPress={handleDemoLogin}
-            disabled={loading || demoLoading}
-          >
-            {demoLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <View style={styles.demoBtnRow}>
-                <Ionicons name="flash" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.demoBtnText}>Instant Demo Login (Zero Wait)</Text>
-              </View>
             )}
           </TouchableOpacity>
 
@@ -301,9 +281,9 @@ export default function LoginScreen() {
               <Text style={[styles.presetsTitle, { color: theme.textMuted }]}>Quick Presets:</Text>
               <TouchableOpacity
                 style={[styles.presetChip, { borderColor: theme.border, backgroundColor: theme.background }]}
-                onPress={() => setCustomUrlInput('http://10.10.6.138:5000')}
+                onPress={() => setCustomUrlInput('https://skilltracker-api.onrender.com')}
               >
-                <Text style={[styles.presetText, { color: theme.primary }]}>10.10.6.138:5000</Text>
+                <Text style={[styles.presetText, { color: theme.primary }]}>Cloud Production</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.presetChip, { borderColor: theme.border, backgroundColor: theme.background }]}

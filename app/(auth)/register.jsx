@@ -46,6 +46,12 @@ export default function RegisterScreen() {
       return;
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setErrorMsg('Please enter a valid email address.');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setErrorMsg('Passwords do not match.');
       return;
@@ -89,7 +95,7 @@ export default function RegisterScreen() {
         <View style={styles.header}>
           <Text style={[styles.title, { color: theme.text }]}>Create Account</Text>
           <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-            Join SkillTracker to manage your academics & startup
+            Join SkillTracker to manage your academics & skills
           </Text>
         </View>
 

@@ -13,3 +13,6 @@ yarn-error.*
 *.orig.*
 .DS_Store
 *.log
+
+.env
+.env*.local

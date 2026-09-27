@@ -1,12 +1,18 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { checkAuthStatus, login as apiLogin, register as apiRegister, logout as apiLogout, getCurrentUser } from '../services/authService';
-import { STORAGE_KEYS } from '../constants/storageKeys';
-import { getItem, saveItem, seedDemoData } from '../services/offlineStorage';
-import { Colors } from '../constants/colors';
+import {
+  checkAuthStatus,
+  login as apiLogin,
+  register as apiRegister,
+  logout as apiLogout,
+  getCurrentUser,
+} from '../services/authService.js';
+import { AUTH_TOKEN, USER_DATA, THEME_MODE, STORAGE_KEYS } from '../constants/storageKeys.js';
+import { getItem, saveItem, seedDemoData } from '../services/offlineStorage.js';
+import { Colors } from '../constants/colors.js';
 
-const TOKEN_KEY = (STORAGE_KEYS && STORAGE_KEYS.AUTH_TOKEN) || '@skilltracker_token';
-const USER_KEY = (STORAGE_KEYS && STORAGE_KEYS.USER_DATA) || '@skilltracker_user';
-const THEME_KEY = (STORAGE_KEYS && STORAGE_KEYS.THEME_MODE) || '@skilltracker_theme_mode';
+const TOKEN_KEY = AUTH_TOKEN || STORAGE_KEYS?.AUTH_TOKEN || '@skilltracker_token';
+const USER_KEY = USER_DATA || STORAGE_KEYS?.USER_DATA || '@skilltracker_user';
+const THEME_KEY = THEME_MODE || STORAGE_KEYS?.THEME_MODE || '@skilltracker_theme_mode';
 
 const AuthContext = createContext({});
 
@@ -28,16 +34,26 @@ export const AuthProvider = ({ children }) => {
       }
 
       const auth = await checkAuthStatus();
-      if (auth.isAuthenticated) {
+      if (auth.isAuthenticated && auth.token) {
         setToken(auth.token);
         setUser(auth.user);
-        // refresh in background
-        getCurrentUser().then((fresh) => {
-          if (fresh) setUser(fresh);
-        });
+
+        // Validate session with server in background if online
+        getCurrentUser()
+          .then((fresh) => {
+            if (fresh) {
+              setUser(fresh);
+            }
+          })
+          .catch((err) => {
+            // If token expired or rejected by server with 401
+            if (err?.status === 401) {
+              logout();
+            }
+          });
       }
     } catch (e) {
-      console.warn('Initial auth load error:', e);
+      console.warn('[Initial Auth Load Error]', e);
     } finally {
       setIsLoading(false);
     }
@@ -50,18 +66,38 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (credentials) => {
-    const res = await apiLogin(credentials);
-    if (res.success && res.data) {
-      setToken(res.data.token);
-      setUser(res.data.user);
+    try {
+      const res = await apiLogin(credentials);
+      if (res && res.success && res.data) {
+        setToken(res.data.token);
+        setUser(res.data.user);
+      }
+      return res || { success: false, error: 'Unable to sign in.' };
+    } catch (err) {
+      console.error('[useAuth login error]', err);
+      return { success: false, error: err.message || 'Login failed. Please try again.' };
     }
-    return res;
+  };
+
+  const register = async (userData) => {
+    try {
+      const res = await apiRegister(userData);
+      if (res && res.success && res.data) {
+        setToken(res.data.token);
+        setUser(res.data.user);
+      }
+      return res || { success: false, error: 'Registration failed.' };
+    } catch (err) {
+      console.error('[useAuth register error]', err);
+      return { success: false, error: err.message || 'Registration failed. Please try again.' };
+    }
   };
 
   const demoLogin = async () => {
     const mockUser = {
       id: 'demo_user_101',
-      name: 'Thamil Selvan',
+      _id: 'demo_user_101',
+      name: 'Thamizh Selvan',
       email: 'thamil@skilltracker.app',
       college: 'College of Engineering & Technology',
       department: 'Computer Science & Engineering',
@@ -79,25 +115,24 @@ export const AuthProvider = ({ children }) => {
     return { success: true, data: { user: mockUser, token: mockToken } };
   };
 
-  const register = async (userData) => {
-    const res = await apiRegister(userData);
-    if (res.success && res.data) {
-      setToken(res.data.token);
-      setUser(res.data.user);
-    }
-    return res;
-  };
-
   const logout = async () => {
-    await apiLogout();
-    setToken(null);
-    setUser(null);
+    try {
+      await apiLogout();
+    } finally {
+      setToken(null);
+      setUser(null);
+    }
   };
 
   const refreshUser = async () => {
-    const fresh = await getCurrentUser();
-    if (fresh) setUser(fresh);
-    return fresh;
+    try {
+      const fresh = await getCurrentUser();
+      if (fresh) setUser(fresh);
+      return fresh;
+    } catch (e) {
+      console.warn('[refreshUser warn]', e);
+      return user;
+    }
   };
 
   const activeColors = themeMode === 'dark' ? Colors.dark : Colors.light;
@@ -109,6 +144,7 @@ export const AuthProvider = ({ children }) => {
         token,
         isAuthenticated: Boolean(token),
         isLoading,
+        authLoading: isLoading,
         login,
         demoLogin,
         register,

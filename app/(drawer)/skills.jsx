@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Header } from '../../components/Header';
@@ -19,6 +21,7 @@ import { ProgressBar } from '../../components/ProgressBar';
 import { ConfirmModal } from '../../components/ConfirmModal';
 import { EmptyState } from '../../components/EmptyState';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../services/api';
+import { getCachedData } from '../../services/offlineStorage';
 import { SKILL_CATEGORIES, SKILL_LEVELS } from '../../constants/config';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -49,6 +52,29 @@ export default function SkillsScreen() {
   // Delete Confirm Modal
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
+
+  // 1. Load cached data immediately on mount (< 30ms render)
+  useEffect(() => {
+    let isMounted = true;
+    const initLoad = async () => {
+      try {
+        const cached = await getCachedData('/api/skills');
+        if (cached && isMounted) {
+          const list = cached.data || cached.skills || (Array.isArray(cached) ? cached : []);
+          if (list.length > 0) {
+            setSkills(list);
+            setLoading(false);
+          }
+        }
+      } catch (e) {
+        console.warn('Error reading skills cache:', e);
+      }
+    };
+    initLoad();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const fetchSkills = useCallback(async () => {
     try {
@@ -267,7 +293,10 @@ export default function SkillsScreen() {
 
       {/* Add / Edit Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
           <View style={[styles.modalContent, { backgroundColor: theme.card, borderColor: theme.cardBorder }]}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: theme.text }]}>
@@ -383,7 +412,7 @@ export default function SkillsScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Delete Confirmation Modal */}

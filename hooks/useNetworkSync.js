@@ -6,6 +6,9 @@ import {
   subscribeToSync,
 } from '../services/syncService';
 import { getItem } from '../services/offlineStorage';
+import { LAST_SYNC_TIME } from '../constants/storageKeys';
+
+const SYNC_TIME_KEY = LAST_SYNC_TIME || '@skilltracker_last_sync_time';
 
 export const useNetworkSync = () => {
   const [isOnline, setIsOnline] = useState(true);
@@ -20,7 +23,7 @@ export const useNetworkSync = () => {
       const [online, pending, lastSync] = await Promise.all([
         checkServerReachability(),
         getPendingSyncCount(),
-        getItem('@skilltracker_last_sync_time'),
+        getItem(SYNC_TIME_KEY),
       ]);
 
       setIsOnline(online);
