@@ -1,5 +1,5 @@
 export const DEFAULT_API_URL =
-  process.env.EXPO_PUBLIC_API_URL || 'https://skilltracker-api.onrender.com';
+  process.env.EXPO_PUBLIC_API_URL || 'https://skilltracker-r1he.onrender.com';
 
 export const SKILL_CATEGORIES = [
   'All',
