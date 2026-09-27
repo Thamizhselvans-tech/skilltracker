@@ -18,12 +18,32 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Database connection check middleware (prevents 10s buffering timeouts)
-const checkDbConnection = (req, res, next) => {
+// Database connection check middleware (handles connecting states gracefully during cold boot)
+const checkDbConnection = async (req, res, next) => {
+  // If connecting (readyState === 2), wait briefly for Atlas handshake to finish
+  if (mongoose.connection.readyState === 2) {
+    let elapsed = 0;
+    while (mongoose.connection.readyState === 2 && elapsed < 8000) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      elapsed += 250;
+    }
+  }
+
+  // If still not connected (e.g. 0), attempt reconnect
+  if (mongoose.connection.readyState !== 1) {
+    if (mongoose.connection.readyState === 0 && process.env.MONGO_URI) {
+      try {
+        await connectDB();
+      } catch (err) {
+        console.error('[Auto-Reconnect Error]', err.message);
+      }
+    }
+  }
+
   if (mongoose.connection.readyState !== 1) {
     return res.status(503).json({
       success: false,
-      message: 'MongoDB database is currently disconnected. Please verify MONGO_URI in backend/.env.',
+      message: 'MongoDB database is currently establishing cloud connection. Please retry in a few seconds.',
       dbState: mongoose.connection.readyState,
     });
   }
