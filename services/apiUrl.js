@@ -19,7 +19,13 @@ export const getBaseApiUrl = async () => {
   try {
     const savedUrl = await AsyncStorage.getItem(API_URL_KEY);
     if (savedUrl) {
-      if (savedUrl.includes('10.10.6.138')) {
+      if (
+        savedUrl.includes('10.') ||
+        savedUrl.includes('192.168.') ||
+        savedUrl.includes('localhost') ||
+        savedUrl.includes('127.0.0.1') ||
+        savedUrl.includes('skilltracker-api.onrender.com')
+      ) {
         currentBaseUrl = DEFAULT_API_URL;
         await AsyncStorage.setItem(API_URL_KEY, DEFAULT_API_URL);
       } else {

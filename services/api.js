@@ -39,7 +39,7 @@ export const requestApi = async (endpoint, method = 'GET', body = null) => {
 
   try {
     const isAuth = endpoint.includes('/auth');
-    const timeoutDuration = isAuth ? 3000 : 4500;
+    const timeoutDuration = isAuth ? 45000 : 15000;
 
     let timeoutId;
     const timeoutPromise = new Promise((_, reject) => {
