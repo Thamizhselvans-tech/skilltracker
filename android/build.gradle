@@ -6,8 +6,8 @@ buildscript {
     minSdkVersion = Integer.parseInt(findProperty('android.minSdkVersion') ?: '24')
     compileSdkVersion = Integer.parseInt(findProperty('android.compileSdkVersion') ?: '35')
     targetSdkVersion = Integer.parseInt(findProperty('android.targetSdkVersion') ?: '35')
-    kotlinVersion = '2.0.21'
-    kspVersion = '2.0.21-1.0.28'
+    kotlinVersion = '2.1.20'
+    kspVersion = '2.1.20-2.0.1'
   }
   repositories {
     google()
@@ -21,8 +21,8 @@ buildscript {
 }
 
 ext {
-  kotlinVersion = '2.0.21'
-  kspVersion = '2.0.21-1.0.28'
+  kotlinVersion = '2.1.20'
+  kspVersion = '2.1.20-2.0.1'
 }
 
 allprojects {
@@ -30,6 +30,12 @@ allprojects {
     google()
     mavenCentral()
     maven { url 'https://www.jitpack.io' }
+  }
+  configurations.all {
+    resolutionStrategy {
+      force 'androidx.core:core:1.15.0'
+      force 'androidx.core:core-ktx:1.15.0'
+    }
   }
 }
 
